@@ -8,7 +8,7 @@ import ssl
 import sys
 import urllib.request
 import urllib.error
-
+import streamlit as st
 import certifi
 
 
@@ -21,6 +21,10 @@ API_URL = "https://dashscope.aliyuncs.com/compatible-mode/v1/embeddings"
 
 
 def read_api_key():
+    # 优先读取 Streamlit Cloud Secrets，本地开发时回退到 .env
+    if "DASHSCOPE_API_KEY" in st.secrets:
+        return st.secrets["DASHSCOPE_API_KEY"]
+
     env = {}
 
     for line in ENV_PATH.read_text(encoding="utf-8").splitlines():
