@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>工程设计变更智能审计问答</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <!-- ================= 页面右上角：感叹号参考文件胶囊 ================= -->
+  <button id="refFilesBtn" class="ref-files-btn" title="查看全部参考文件">
+    <span class="exclamation-circle">!</span>
+    <span>参考文件</span>
+  </button>
+
+  <!-- ================= 视窗 1：通透三图平滑全屏轮播 + 极简 ABC 角色权限选择 ================= -->
+  <main id="landingView" class="landing-view">
+
+    <div id="landingWeatherEffect" class="weather-atmosphere" aria-hidden="true"></div>
+    <div id="landingWeather" class="weather-widget" data-condition="clear">
+      <span class="weather-icon">☀️</span>
+      <span class="weather-temp">--°</span>
+      <span class="weather-label">深圳 · 获取天气中</span>
+    </div>
+    
+    <!-- 全屏三张工程大图自动平滑轮播背景 -->
+    <div class="bg-carousel-container" id="bgCarousel">
+      <!-- 图片 1：现代城市大型地标建筑与天际线 -->
+      <div class="bg-carousel-slide active" style="background-image: url('https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?auto=format&fit=crop&w=2400&q=85');"></div>
+      <!-- 图片 2：现代高品质工程建筑立面与几何结构 -->
+      <div class="bg-carousel-slide" style="background-image: url('https://images.unsplash.com/photo-1487958449943-2429e8be8625?auto=format&fit=crop&w=2400&q=85');"></div>
+      <!-- 图片 3：现代工程设计规划与建筑蓝图透视 -->
+      <div class="bg-carousel-slide" style="background-image: url('https://images.unsplash.com/photo-1503387762-592deb58ef4e?auto=format&fit=crop&w=2400&q=85');"></div>
+      <!-- 极轻量局部微羽化遮罩 -->
+      <div class="bg-carousel-overlay"></div>
+    </div>
+
+    <!-- 头部极简文案 (无框，文字地下覆盖沿着文字边缘的毛玻璃) -->
+    <div class="landing-hero-zone">
+      <h1 class="landing-title"><span class="text-glass-edge">工程设计制度问答及合规审核Agent</span></h1>
+      <p class="landing-subtitle"><span class="text-glass-edge">选择用户权限角色 · 即刻进入智能问答</span></p>
+    </div>
+
+    <!-- 滑动交互区 -->
+    <div class="sliding-nav-container">
+      
+      <!-- 磁吸滑动导轨 -->
+      <div class="sliding-nav-track" id="slidingNavTrack">
+        <div class="sliding-active-indicator" id="slidingIndicator"></div>
+        
+        <div class="sliding-nav-item active" data-index="0" data-role="A">
+          <span class="nav-dot dot-a"></span>
+          <span>角色 A · 审计监察</span>
+        </div>
+        <div class="sliding-nav-item" data-index="1" data-role="B">
+          <span class="nav-dot dot-b"></span>
+          <span>角色 B · 工程管理</span>
+        </div>
+        <div class="sliding-nav-item" data-index="2" data-role="C">
+          <span class="nav-dot dot-c"></span>
+          <span>角色 C · 集团决策</span>
+        </div>
+      </div>
+
+      <!-- ABC 三个角色权限（完全去除框框，仅在文字底下紧密沿着文字边缘覆盖毛玻璃） -->
+      <div class="roles-slider-stage" id="rolesSliderStage">
+        
+        <!-- 角色 A -->
+        <div class="role-slide-col card-a active" data-index="0" data-role="A">
+          <div class="role-circle-ring circle-ring-a">
+            <span class="circle-letter-big">A</span>
+          </div>
+          <div class="role-text-cluster">
+            <div class="role-headline"><span class="text-glass-edge">角色 A · 项目经理</span></div>
+            <div class="role-tagline"><span class="text-glass-edge">一个项目 · 001</span></div>
+            <p class="role-brief-desc"><span class="text-glass-edge">查看制度文件及本项目情况</span></p>
+          </div>
+        </div>
+
+        <!-- 角色 B -->
+        <div class="role-slide-col card-b" data-index="1" data-role="B">
+          <div class="role-circle-ring circle-ring-b">
+            <span class="circle-letter-big">B</span>
+          </div>
+          <div class="role-text-cluster">
+            <div class="role-headline"><span class="text-glass-edge">角色 B · 区域管理</span></div>
+            <div class="role-tagline"><span class="text-glass-edge">三个项目 · 123</span></div>
+            <p class="role-brief-desc"><span class="text-glass-edge">查看制度及区域项目情况</span></p>
+          </div>
+        </div>
+
+        <!-- 角色 C -->
+        <div class="role-slide-col card-c" data-index="2" data-role="C">
+          <div class="role-circle-ring circle-ring-c">
+            <span class="circle-letter-big">C</span>
+          </div>
+          <div class="role-text-cluster">
+            <div class="role-headline"><span class="text-glass-edge">角色 C · 全部项目</span></div>
+            <div class="role-tagline"><span class="text-glass-edge">全部项目 · 总揽全局</span></div>
+            <p class="role-brief-desc"><span class="text-glass-edge">查看制度及全部项目情况</span></p>
+          </div>
+        </div>
+
+      </div>
+
+    </div>
+
+    <!-- 轮播底端指示条 -->
+    <div class="bg-carousel-dots">
+      <span class="bg-dot active" data-slide="0" title="工程图片 1"></span>
+      <span class="bg-dot" data-slide="1" title="工程图片 2"></span>
+      <span class="bg-dot" data-slide="2" title="工程图片 3"></span>
+    </div>
+
+  </main>
+
+  <!-- ================= 视窗 2：Gemini 风格提问弹出框 (居中显示，轻微毛玻璃，纯对话交互) ================= -->
+  <div id="geminiChatModal" class="gemini-modal-overlay">
+    <div class="gemini-chat-window">
+      <!-- 顶部轻量状态栏 -->
+      <div class="gemini-header">
+        <div class="gemini-header-left">
+          <span class="gemini-sparkle">✨</span>
+          <span class="gemini-title">工程设计变更智能审计问答</span>
+        </div>
+        <div class="gemini-header-right">
+          <button id="closeChatModalBtn" class="gemini-btn-close" title="关闭问答窗口">✕</button>
+        </div>
+      </div>
+
+      <!-- 快捷审计指令胶囊 (纯对话模式，无物理文件写入) -->
+      <div class="gemini-pills-bar">
+        <button class="g-pill" data-action="1">📊 1. 变更金额累计是否错误</button>
+        <button class="g-pill" data-action="2">☀️ 2. 是否按照要求在阳光平台公示</button>
+        <button class="g-pill" data-action="3">🏛️ 3. 是否走了工程技术委员会审批</button>
+        <button class="g-pill" data-action="4">📋 4. 审批流程是否正确</button>
+        <button class="g-pill" data-action="5">⚠️ 5. 其他和制度冲突的部分</button>
+        <button class="g-pill" data-action="qa">📖 制度知识问答</button>
+      </div>
+
+      <!-- 问答消息滚动区域 (单列居中流，无左侧对话历史侧边栏) -->
+      <div id="chatScrollArea" class="gemini-chat-body">
+        <!-- 动态生成用户与AI对话泡泡 -->
+      </div>
+
+      <!-- 底部 Gemini 风格浮动输入胶囊 -->
+      <div class="gemini-input-container">
+        <div class="gemini-input-pill">
+          <input type="text" id="chatInput" class="gemini-input" placeholder="输入您的问题（例如：重大设计变更标准、输入以上5个审计项直接核验）..." />
+          <button id="sendBtn" class="gemini-send-btn" title="发送">
+            <span>➤</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- 左下角显示角色徽标（悬停提示，点击仅向上弹出 A/B/C 三个按钮，不覆盖页面） -->
+      <div class="bottom-left-role-badge" id="bottomLeftRoleBadge">
+        <div class="role-hover-tooltip" id="roleHoverTooltip">（点击可以选择切换角色）</div>
+        
+        <!-- 向上弹出的 ABC 三个角色小圆圈按钮 (垂直堆叠) -->
+        <div class="role-popup-stack" id="rolePopupStack">
+          <button class="role-pop-btn role-c" data-role="C" title="切换角色 C · 集团决策">C</button>
+          <button class="role-pop-btn role-b" data-role="B" title="切换角色 B · 工程管理">B</button>
+          <button class="role-pop-btn role-a active" data-role="A" title="切换角色 A · 审计监察">A</button>
+        </div>
+
+        <!-- 主角色圆圈 -->
+        <div class="role-badge-circle role-a" id="roleBadgeCircle">
+          <span id="roleLetterDisplay">A</span>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ================= 弹窗：展示全部参考文件 ================= -->
+  <div id="refFilesModal" class="modal-overlay">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3>
+          <span style="color: #f59e0b;">!</span>
+          <span>全部参考文件清单</span>
+        </h3>
+        <button id="closeModalBtn" class="btn-close-modal" title="关闭窗口">✕</button>
+      </div>
+
+      <div class="modal-body">
+        <div id="referenceFilesBody" class="reference-files-body"></div>
+      </div>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
