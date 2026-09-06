@@ -41,6 +41,11 @@ def filter_database_for_role(database, role):
             for review in database["committee_reviews"]
             if review["project_number"] in allowed_project_numbers
         ],
+        "approval_records": [
+            record
+            for record in database["approval_records"]
+            if record["project_number"] in allowed_project_numbers
+        ],
     }
 
 

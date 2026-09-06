@@ -1,6 +1,6 @@
 /**
- * 工程设计变更智能问答 (app.js)
- * 纯对话模式：首页 A/B/C 三种角色权限选择，进入后全部以对话交互完成，无需写入修改文件
+ * 主要作用：运行工程设计变更智能问答前端交互。
+ * 纯对话模式：首页选择 A/B/C 角色，提供问答、复制、重新回答和请求暂停交互。
  */
 
 (function () {
@@ -9,31 +9,35 @@
   let activeIndex = 0;
   let bgSlideIndex = 0;
   let bgTimer = null;
+  let locationWeatherLoaded = false;
+  let requestPending = false;
+  let requestToken = 0;
+  let lastUserQuestion = '';
 
   const ROLE_CONFIG = {
     A: {
       code: 'A',
-      name: '角色 A · 审计监察',
-      duty: '穿透核查权限',
+      name: '角色 A · 项目经理',
+      duty: '单项目查看权限',
       avatar: '🛡️',
       desc: '合规审查 · 违规穿透 · 纪检问责',
-      welcome: '您好！已为您开启**角色 A · 审计监察（穿透核查权限）**问答对话。\n\n重点针对全盘在建工程项目的变更金额加总一致性、超400万单项与超5%累计公示合规性、非应急“未批先建”及违规拆分规避审批等风险提供穿透式审查。请点击上方指令或直接提问。'
+      welcome: '你好，当前是**角色 A · 项目经理**，可查看南区水厂二期 EPC 项目。\n\n你可以询问制度要求、项目与变更数据，或发起合规审计。'
     },
     B: {
       code: 'B',
-      name: '角色 B · 工程管理',
-      duty: '分级审批与方案合规权限',
+      name: '角色 B · 区域管理',
+      duty: '区域三项目查看权限',
       avatar: '📐',
       desc: '分级审批 · 专家论证 · 单据闭环',
-      welcome: '您好！已为您开启**角色 B · 项目工程主管（分级审批与方案合规权限）**问答对话。\n\n重点协助把关单项超200万元专家论证组织闭环、现场工程量确认时效（14天内办理）及工程技术委员会报审流程。请点击上方指令或直接提问。'
+      welcome: '你好，当前是**角色 B · 区域管理**，可查看区域内 3 个项目。\n\n你可以询问制度要求、项目与变更数据，或发起合规审计。'
     },
     C: {
       code: 'C',
-      name: '角色 C · 集团决策',
-      duty: '投资宏观监管权限',
+      name: '角色 C · 全部项目',
+      duty: '全部项目查看权限',
       avatar: '🏛️',
       desc: '投资控制 · 阳光公示 · 宏观决策',
-      welcome: '您好！已为您开启**角色 C · 集团决策层（投资宏观监管权限）**问答对话。\n\n重点针对8大在建工程项目累计变更率监控、超合同额5%阳光采购平台对外公示督办及重大投资风险提供宏观决策分析。'
+      welcome: '你好，当前是**角色 C · 全部项目**，可查看全部 8 个项目。\n\n你可以询问制度要求、项目与变更数据，或发起合规审计。'
     }
   };
 
@@ -43,48 +47,32 @@
   const closeModalBtn = document.getElementById('closeModalBtn');
   const referenceFilesBody = document.getElementById('referenceFilesBody');
   const weatherWidgets = document.querySelectorAll('.weather-widget');
-  const weatherEffects = document.querySelectorAll('.weather-atmosphere');
   const geminiChatModal = document.getElementById('geminiChatModal');
   const closeChatModalBtn = document.getElementById('closeChatModalBtn');
   const chatScrollArea = document.getElementById('chatScrollArea');
   const chatInput = document.getElementById('chatInput');
   const sendBtn = document.getElementById('sendBtn');
-  const slidingIndicator = document.getElementById('slidingIndicator');
-  const slidingNavTrack = document.getElementById('slidingNavTrack');
   const bottomLeftBadge = document.getElementById('bottomLeftRoleBadge');
   const roleBadgeCircle = document.getElementById('roleBadgeCircle');
   const rolePopupStack = document.getElementById('rolePopupStack');
+  const feedbackBtn = document.getElementById('feedbackBtn');
+  const versionBtn = document.getElementById('versionBtn');
+  const feedbackModal = document.getElementById('feedbackModal');
+  const versionModal = document.getElementById('versionModal');
+  const closeFeedbackBtn = document.getElementById('closeFeedbackBtn');
+  const closeVersionBtn = document.getElementById('closeVersionBtn');
+  const feedbackInput = document.getElementById('feedbackInput');
+  const submitFeedbackBtn = document.getElementById('submitFeedbackBtn');
+  const feedbackStatus = document.getElementById('feedbackStatus');
+  const feedbackList = document.getElementById('feedbackList');
+  const versionList = document.getElementById('versionList');
 
   // 初始化绑定
   function init() {
     // 1. 初始化全屏三图平滑轮播
     initBackgroundCarousel();
 
-    // 2. 初始化磁吸滑轨位置
-    setTimeout(() => {
-      updateSlidingIndicator(0);
-    }, 100);
-
-    window.addEventListener('resize', () => {
-      updateSlidingIndicator(activeIndex);
-    });
-
-    // 3. 磁吸导轨项点击与滑过联动
-    const navItems = document.querySelectorAll('.sliding-nav-item');
-    navItems.forEach(item => {
-      const idx = parseInt(item.getAttribute('data-index'), 10);
-      const role = item.getAttribute('data-role');
-
-      item.addEventListener('mouseenter', () => {
-        updateSlidingIndicator(idx);
-      });
-
-      item.addEventListener('click', () => {
-        openGeminiChat(role);
-      });
-    });
-
-    // 4. 首页角色权限卡片点击与滑过联动
+    // 2. 首页角色权限卡片点击与滑过联动
     const roleCols = document.querySelectorAll('.role-slide-col, .role-slide-card');
     roleCols.forEach(card => {
       const idx = parseInt(card.getAttribute('data-index'), 10);
@@ -99,7 +87,7 @@
       });
     });
 
-    // 5. 点击右上角感叹号：弹窗展示全部参考文件
+    // 3. 点击右上角感叹号：弹窗展示全部参考文件
     refFilesBtn.addEventListener('click', () => {
       refFilesModal.classList.add('open');
     });
@@ -114,7 +102,7 @@
       }
     });
 
-    // 6. 关闭 Gemini 提问居中弹出框
+    // 4. 关闭 Gemini 提问居中弹出框
     closeChatModalBtn.addEventListener('click', () => {
       geminiChatModal.classList.remove('open');
       closeRolePopupStack();
@@ -127,7 +115,7 @@
       }
     });
 
-    // 7. 左下角角色圆圈点击：向上弹出 ABC 三个角色的按钮（不覆盖页面）
+    // 5. 左下角角色圆圈点击：向上弹出 ABC 三个角色的按钮（不覆盖页面）
     if (roleBadgeCircle && rolePopupStack) {
       roleBadgeCircle.addEventListener('click', (e) => {
         e.stopPropagation();
@@ -157,21 +145,48 @@
       }
     });
 
-    // 8. 输入框与发送消息
-    sendBtn.addEventListener('click', handleSend);
+    // 6. 输入框与发送消息
+    sendBtn.addEventListener('click', () => {
+      if (requestPending) {
+        pauseRequest();
+        return;
+      }
+      handleSend();
+    });
     chatInput.addEventListener('keydown', (e) => {
       if (e.key === 'Enter') {
         handleSend();
       }
     });
 
-    // 9. 5大核心审计快捷操作按钮 + 知识问答
-    document.querySelectorAll('.g-pill').forEach(btn => {
+    feedbackBtn.addEventListener('click', () => feedbackModal.classList.add('open'));
+    versionBtn.addEventListener('click', () => versionModal.classList.add('open'));
+    closeFeedbackBtn.addEventListener('click', () => feedbackModal.classList.remove('open'));
+    closeVersionBtn.addEventListener('click', () => versionModal.classList.remove('open'));
+
+    feedbackModal.addEventListener('click', (event) => {
+      if (event.target === feedbackModal) feedbackModal.classList.remove('open');
+    });
+
+    versionModal.addEventListener('click', (event) => {
+      if (event.target === versionModal) versionModal.classList.remove('open');
+    });
+
+    submitFeedbackBtn.addEventListener('click', () => {
+      const content = feedbackInput.value.trim();
+      if (!content) return;
+      sendInteractionToStreamlit('submit_feedback', content);
+      feedbackInput.value = '';
+    });
+
+    // 7. 三类核心能力快捷入口
+    document.querySelectorAll('.capability-card').forEach(btn => {
       btn.addEventListener('click', () => {
         const action = btn.getAttribute('data-action');
         triggerAction(action);
       });
     });
+
   }
 
   // ================= 全屏三张大图自动轮播 =================
@@ -208,22 +223,9 @@
     startCarouselTimer();
   }
 
-  // 更新磁吸滑动条与联动卡片
+  // 更新首页角色卡片的悬停状态。
   function updateSlidingIndicator(index) {
     activeIndex = index;
-    const navItems = document.querySelectorAll('.sliding-nav-item');
-    const targetItem = navItems[index];
-    if (!targetItem || !slidingIndicator || !slidingNavTrack) return;
-
-    const trackRect = slidingNavTrack.getBoundingClientRect();
-    const itemRect = targetItem.getBoundingClientRect();
-    const leftOffset = itemRect.left - trackRect.left;
-
-    slidingIndicator.style.transform = `translateX(${leftOffset}px)`;
-    slidingIndicator.style.width = `${itemRect.width}px`;
-
-    navItems.forEach((it, i) => it.classList.toggle('active', i === index));
-
     const roleCols = document.querySelectorAll('.role-slide-col, .role-slide-card');
     roleCols.forEach((card, i) => card.classList.toggle('active', i === index));
   }
@@ -241,14 +243,20 @@
     }
   }
 
-  // 在对话框内部切换角色权限视角
+  // 主要作用：切换 A、B、C 角色，并清空当前角色的聊天显示。
   function switchRoleInChat(role) {
-    currentRole = role;
-    const config = ROLE_CONFIG[role] || ROLE_CONFIG.A;
+  pauseRequest();
+  currentRole = role;
+  updateRoleBadgeUI(role);
 
-    updateRoleBadgeUI(role);
-    sendToStreamlit(role);
-  }
+  hideTyping();
+  chatScrollArea.replaceChildren();
+
+  const config = ROLE_CONFIG[role] || ROLE_CONFIG.A;
+  appendAIMessage(config.welcome);
+
+  sendRoleSwitchToStreamlit(role);
+}
 
   function openRolePopupStack() {
     if (rolePopupStack && bottomLeftBadge) {
@@ -279,38 +287,148 @@
 
   // 发送消息处理
   function handleSend() {
+    if (requestPending) return;
     const text = chatInput.value.trim();
     if (!text) return;
     appendUserMessage(text);
+    lastUserQuestion = text;
     chatInput.value = '';
 
-    sendToStreamlit(text);
+    requestToken += 1;
+    requestPending = true;
+    setRequestState(true);
+    showTyping(getServiceName(text));
+    sendToStreamlit(text, requestToken);
   }
 
-  function sendToStreamlit(text) {
+  // 主要作用：将当前角色的问题发送给 Streamlit 后端。
+function sendToStreamlit(text, token) {
+  window.parent.postMessage({
+    isStreamlitMessage: true,
+    type: 'streamlit:setComponentValue',
+    value: {
+      action: 'ask',
+      role: currentRole,
+      message: text,
+      request_token: token
+    }
+  }, '*');
+}
+
+// 主要作用：用同一问题重新生成回答，不重复添加用户消息。
+function regenerateAnswer(question) {
+  if (requestPending || !question) return;
+  requestToken += 1;
+  requestPending = true;
+  lastUserQuestion = question;
+  setRequestState(true);
+  showTyping(getServiceName(question));
+  sendInteractionToStreamlit(
+    'regenerate',
+    question,
+    { request_token: requestToken }
+  );
+}
+// 主要作用：通知后端用户刚刚切换了 A、B、C 角色。
+function sendRoleSwitchToStreamlit(role) {
+  window.parent.postMessage({
+    isStreamlitMessage: true,
+    type: 'streamlit:setComponentValue',
+    value: {
+      action: 'switch_role',
+      role: role,
+      message: role
+    }
+  }, '*');
+}
+
+  // 主要作用：暂停当前请求，允许用户重新发起问题。
+  function pauseRequest() {
+    if (!requestPending) return;
+    requestToken += 1;
+    requestPending = false;
+    hideTyping();
+    setRequestState(false);
+  }
+
+  // 主要作用：锁定或恢复输入控件。
+  function setRequestState(pending) {
+    chatInput.disabled = pending;
+    document.querySelectorAll('.capability-card').forEach(btn => {
+      btn.disabled = pending;
+    });
+    sendBtn.classList.toggle('pause-active', pending);
+    sendBtn.title = pending ? '暂停查询' : '发送';
+    sendBtn.innerHTML = pending ? '<span>■</span>' : '<span>➤</span>';
+  }
+
+  function sendInteractionToStreamlit(action, message, extra = {}) {
     window.parent.postMessage({
       isStreamlitMessage: true,
       type: 'streamlit:setComponentValue',
-      value: { role: currentRole, message: text }
+      value: {
+        action,
+        role: currentRole,
+        message,
+        ...extra
+      }
     }, '*');
+  }
+
+  // 主要作用：根据问题内容显示当前正在运行的能力名称。
+  function getServiceName(text) {
+    const query = text.toLowerCase();
+
+    if (
+      query.includes('审计') || query.includes('核查') ||
+      query.includes('检查') || query.includes('审批') ||
+      query.includes('公示') || query.includes('未批先建') ||
+      query.includes('退回后施工')
+    ) {
+      return '正在运行：审计分析';
+    }
+
+    if (
+      query.includes('查询') || query.includes('查看') ||
+      query.includes('变更记录') || query.includes('评审记录') ||
+      query.includes('基本信息')
+    ) {
+      return '正在运行：数据库查询';
+    }
+
+    return '正在运行：制度检索';
   }
 
   function receiveFromStreamlit(event) {
     if (!event.data || event.data.type !== 'streamlit:render') return;
     const args = event.data.args || {};
-    if (args.weather) {
+    if (args.weather && !locationWeatherLoaded) {
       updateWeather(args.weather);
     }
     if (Array.isArray(args.reference_files)) {
       renderReferenceFiles(args.reference_files);
     }
+    if (Array.isArray(args.versions)) {
+      renderVersions(args.versions);
+    }
+    if (Array.isArray(args.feedback)) {
+      renderFeedback(args.feedback);
+    }
+    if (args.feedback_status) {
+      feedbackStatus.textContent = args.feedback_status;
+    }
     if (args.role && args.role !== currentRole) {
       currentRole = args.role;
       updateRoleBadgeUI(currentRole);
     }
-    if (args.response) {
+    if (
+      args.response && requestPending &&
+      Number(args.response_token) === requestToken
+    ) {
+      requestPending = false;
+      setRequestState(false);
       hideTyping();
-      appendAIMessage(args.response);
+      appendAIMessage(args.response, lastUserQuestion);
     }
     window.parent.postMessage({ isStreamlitMessage: true, type: 'streamlit:setFrameHeight', height: document.body.scrollHeight }, '*');
   }
@@ -337,8 +455,22 @@
       if (temp) temp.textContent = temperature;
       if (label) label.textContent = `${city} · ${presentation.label}`;
     });
-    weatherEffects.forEach(effect => {
-      effect.dataset.condition = presentation.condition;
+  }
+
+  // 主要作用：根据访问者公网 IP 获取所在城市天气。
+  async function loadLocationWeather() {
+    const locationResponse = await fetch('https://ipwho.is/');
+    const location = await locationResponse.json();
+    const weatherResponse = await fetch(
+      `https://api.open-meteo.com/v1/forecast?latitude=${location.latitude}&longitude=${location.longitude}&current=temperature_2m,weather_code,is_day&timezone=auto`
+    );
+    const weather = await weatherResponse.json();
+    locationWeatherLoaded = true;
+    updateWeather({
+      city: location.city,
+      temperature: weather.current.temperature_2m,
+      weather_code: weather.current.weather_code,
+      is_day: weather.current.is_day
     });
   }
 
@@ -389,10 +521,29 @@
         name.className = 'file-desc';
         name.textContent = file.name || file.path || '未命名文件';
         left.append(badge, name);
+        const actions = document.createElement('div');
+        actions.className = 'file-actions';
         const meta = document.createElement('span');
         meta.className = 'file-size';
-        meta.textContent = `${formatFileSize(file.size)} · 仓库文件`;
-        row.append(left, meta);
+        meta.textContent = formatFileSize(file.size);
+        actions.appendChild(meta);
+
+        const dataUrl = `data:${file.mime_type};base64,${file.data}`;
+        if (file.mime_type === 'application/pdf') {
+          const preview = document.createElement('button');
+          preview.className = 'file-action-btn';
+          preview.textContent = '预览';
+          preview.addEventListener('click', () => window.open(dataUrl, '_blank'));
+          actions.appendChild(preview);
+        }
+
+        const download = document.createElement('a');
+        download.className = 'file-action-btn';
+        download.textContent = '下载';
+        download.href = dataUrl;
+        download.download = file.name;
+        actions.appendChild(download);
+        row.append(left, actions);
         list.appendChild(row);
       });
       section.appendChild(list);
@@ -400,184 +551,68 @@
     });
   }
 
-  // 路由用户问题
-  function routeQuery(text) {
-    const q = text.toLowerCase();
-
-    if (q.includes('1') || q.includes('累计') || q.includes('金额') || q.includes('错误') || q.includes('算错')) {
-      auditQuestion1();
-    } else if (q.includes('2') || q.includes('阳光') || q.includes('公示') || q.includes('公开')) {
-      auditQuestion2();
-    } else if (q.includes('3') || q.includes('技术委员会') || q.includes('委员会') || q.includes('评审') || q.includes('退回')) {
-      auditQuestion3();
-    } else if (q.includes('4') || q.includes('审批流程') || q.includes('分级') || q.includes('权限') || q.includes('拆分') || q.includes('400万')) {
-      auditQuestion4();
-    } else if (q.includes('5') || q.includes('冲突') || q.includes('未批先建') || q.includes('专家论证') || q.includes('违规')) {
-      auditQuestion5();
-    } else {
-      knowledgeQA(text);
+  function renderVersions(versions) {
+    versionList.replaceChildren();
+    if (versions.length) {
+      versionBtn.textContent = versions[versions.length - 1].version;
     }
+
+    [...versions].reverse().forEach(item => {
+      const row = document.createElement('div');
+      row.className = 'version-row';
+      row.innerHTML = `<strong>${escapeHtml(item.version)}</strong><span>${escapeHtml(item.description)}</span>`;
+      versionList.appendChild(row);
+    });
   }
 
-  // 快捷操作指令触发 (纯对话模式)
+  function renderFeedback(items) {
+    feedbackList.replaceChildren();
+    [...items].reverse().forEach(item => {
+      const row = document.createElement('div');
+      row.className = 'feedback-row';
+      row.innerHTML = `
+        <div><strong>${escapeHtml(item.role)}角色</strong> · ${escapeHtml(String(item.submitted_at))}</div>
+        <p>${escapeHtml(item.content)}</p>
+        <div class="feedback-reply-text">${item.reply ? `回复：${escapeHtml(item.reply)}` : '暂未回复'}</div>
+      `;
+
+      const replyInput = document.createElement('input');
+      replyInput.className = 'feedback-reply-input';
+      replyInput.placeholder = '输入回复内容';
+      const replyButton = document.createElement('button');
+      replyButton.className = 'file-action-btn';
+      replyButton.textContent = '保存回复';
+      replyButton.addEventListener('click', () => {
+        const reply = replyInput.value.trim();
+        if (!reply) return;
+        sendInteractionToStreamlit(
+          'reply_feedback',
+          reply,
+          { feedback_id: item.feedback_id }
+        );
+      });
+      row.append(replyInput, replyButton);
+      feedbackList.appendChild(row);
+    });
+  }
+
+  // 主要作用：点击能力入口后，发起对应类型的示例问题。
   function triggerAction(action) {
+    if (requestPending) return;
     const questions = {
-      '1': '变更金额累计是否错误？',
-      '2': '是否按照要求在阳光平台公示？',
-      '3': '是否走了工程技术委员会审批？',
-      '4': '审批流程是否正确？',
-      '5': '其他和制度冲突的部分有哪些？',
-      'qa': '请说明重大设计变更的划分标准与审批要求是什么？'
+      policy: '工程设计变更有哪些主要制度要求？',
+      database: '我可以查看哪些项目？',
+      audit: '请审查当前权限范围内的设计变更是否合规。'
     };
     const question = questions[action];
     if (!question) return;
     appendUserMessage(question);
-    sendToStreamlit(question);
-  }
-
-  // ================= 5 大审计功能 (全部以对话形式输出结论) =================
-
-  // 1、变更金额累计是否错误
-  function auditQuestion1() {
-    const reply = `
-### 审计结论 1：变更金额累计是否错误
-
-根据《管理办法》第七条及附图《审批流程图》，对 8 个工程项目共 80 笔台账逐笔验算：
-
-* **加总核算结论**：**无计算错误（0 处误差）**，累计公式完全吻合。
-* **超 5% 重点预警项目（3 个）**：
-
-<table>
-  <thead>
-    <tr>
-      <th>项目名称</th>
-      <th>合同总额</th>
-      <th>累计变更</th>
-      <th>预警占比</th>
-      <th>状态</th>
-    </tr>
-  </thead>
-  <tbody>
-    <tr>
-      <td><strong>临港能源站项目</strong></td>
-      <td>27,400 万元</td>
-      <td>2,255.00 万元</td>
-      <td>8.23% <span class="audit-progress-bar"><span class="audit-progress-fill fill-red" style="width:82%;"></span></span></td>
-      <td><span class="tag-risk red">严重超标</span></td>
-    </tr>
-    <tr>
-      <td><strong>东部污水处理厂提标</strong></td>
-      <td>32,800 万元</td>
-      <td>1,925.00 万元</td>
-      <td>5.87% <span class="audit-progress-bar"><span class="audit-progress-fill fill-red" style="width:58%;"></span></span></td>
-      <td><span class="tag-risk red">已超5%</span></td>
-    </tr>
-    <tr>
-      <td><strong>北部快速路改造项目</strong></td>
-      <td>43,200 万元</td>
-      <td>2,390.00 万元</td>
-      <td>5.53% <span class="audit-progress-bar"><span class="audit-progress-fill fill-red" style="width:55%;"></span></span></td>
-      <td><span class="tag-risk red">已超5%</span></td>
-    </tr>
-    <tr>
-      <td>城市更新安置房项目</td>
-      <td>68,900 万元</td>
-      <td>2,423.00 万元</td>
-      <td>3.52% <span class="audit-progress-bar"><span class="audit-progress-fill fill-green" style="width:35%;"></span></span></td>
-      <td><span class="tag-risk green">在控</span></td>
-    </tr>
-    <tr>
-      <td>西江综合管廊项目</td>
-      <td>61,200 万元</td>
-      <td>2,079.00 万元</td>
-      <td>3.40% <span class="audit-progress-bar"><span class="audit-progress-fill fill-green" style="width:34%;"></span></span></td>
-      <td><span class="tag-risk green">在控</span></td>
-    </tr>
-  </tbody>
-</table>
-    `;
-    appendAIMessage(reply);
-  }
-
-  // 2、是否按照要求在阳光平台公示
-  function auditQuestion2() {
-    const reply = `
-### 审计结论 2：是否按照要求在阳光平台公示
-
-依据《管理办法》**第十六条【信息公示】**：
-> *单项变更超 400 万元及累计超合同额 5% 以上的设计变更须在阳光采购平台对外公示（2024年6月24日起）。*
-
-**数据表关联核查结果**：
-1. **单项超 400 万元公示**：80 笔变更单项最高为 385 万元，**全部压在 400 万元以下**（存在故意避开单项公示倾向）；
-2. **累计超 5% 公示核对**：超 5% 的 6 笔记录在台账中均填报为**“是”**；
-3. **审计核查重点**：应查验平台公开挂牌凭证与发布时间戳，核实是否存在“事后突击补登”。
-    `;
-    appendAIMessage(reply);
-  }
-
-  // 3、是否走了工程技术委员会审批
-  function auditQuestion3() {
-    const reply = `
-### 审计结论 3：是否走了工程技术委员会审批
-
-依据《管理办法》第九条及《工作规则》第二条：
-> *A类（≥1000万）、B类（400~1000万）重大变更决策前必须报工程技术委员会技术评审，监督委员会全程列席。*
-
-**穿透发现（严重违规事实）**：
-1. **申报情况**：8 个在建工程项目均有向委员会申报的记录；
-2. **重大违规（被退回仍擅自施工）**：
-   * ❌ **南区水厂二期 EPC 项目**（申报议题《机电预留预埋调整》，77万元）：在工程技术委员会评审中被明确决议 **【退回】**；
-   * 🚨 **违规事实**：变更台账明确注明*“施工单位已先行实施，变更审批后补（现场已于 2026-01-22 开工）”*，属于未获批准擅自施工的顶风违规行为！
-    `;
-    appendAIMessage(reply);
-  }
-
-  // 4、审批流程是否正确
-  function auditQuestion4() {
-    const reply = `
-### 审计结论 4：审批流程是否正确
-
-依据《管理办法》第十条分级审批矩阵：
-* **A 类（≥1000万）**：技术委员会 → 分管领导 → 党委会 → 总裁办公会
-* **B 类（400~1000万）**：技术委员会 → 分管领导 → 总裁审批
-* **C 类（200~400万）**：集团分管领导审批（必须附专家论证）
-* **D 类（50~200万）**：集团分管领导审批
-* **E 类（5~50万）**：部门主要负责人审批
-
-**数据表穿透发现（疑似化整为零规避审批）**：
-* 80 笔变更中，C 类共 43 笔，D 类共 37 笔，**无一笔超 400 万元**；
-* 最高单项金额精准卡在 **385万、378万、371万**，疑似故意拆分单项金额以规避上报总裁审批及委员会强审（触犯制度第四条与第二十条追责红线）。
-    `;
-    appendAIMessage(reply);
-  }
-
-  // 5、其他和制度冲突的部分
-  function auditQuestion5() {
-    const reply = `
-### 审计结论 5：其他和制度冲突的部分
-
-对比制度切片与数据表明细，还排查出两项严重违规冲突：
-
-#### 冲突一：严重违反“先批后建”原则（33 笔）
-* **制度红线**：第四条规定严禁未批先建，仅在抢险特殊情况下允许口头报告并在 10 日内补办手续。
-* **数据核查**：共有 **33 笔变更** 明确标注为“非应急”，但现场已实际开工施工，属于违规未批先建！
-
-#### 冲突二：超200万专家论证大面积缺失（37 笔）
-* **制度红线**：第七条、第十条明确规定超 200 万元变更必须组织专家论证并出具附件6咨询意见表。
-* **数据核查**：43 笔超 200 万元变更中，有 **37 笔记录为“未组织专家论证”**，技术论证程序大面积落空。
-    `;
-    appendAIMessage(reply);
-  }
-
-  // 制度切片知识问答
-  function knowledgeQA(query) {
-    let answer = `### 制度依据解答\n\n针对您咨询的问题，为您检索到以下制度条款核心依据：\n\n`;
-    answer += `#### 《K公司工程设计变更管理办法》第七条（重大设计变更划分）\n`;
-    answer += `> 单项或一次性变更造价在 200 万元以上的设计变更属于重大设计变更。划分为 A 类（1000万元以上）、B 类（400~1000万元）、C 类（200~400万元）。\n\n`;
-    answer += `#### 《K公司工程设计变更管理办法》第十六条（阳光采购平台公示）\n`;
-    answer += `> 变更金额 400 万元以上的重大设计变更和累计变更金额超合同价 5% 以上的设计变更须在阳光采购平台对外公示（2024年6月24日起）。\n\n`;
-    answer += `您可以直接点击上方指令按钮对数据表进行对应维度的穿透核验。`;
-    appendAIMessage(answer);
+    lastUserQuestion = question;
+    requestToken += 1;
+    requestPending = true;
+    setRequestState(true);
+    showTyping(getServiceName(question));
+    sendToStreamlit(question, requestToken);
   }
 
   // 追加用户消息
@@ -585,7 +620,6 @@
     const row = document.createElement('div');
     row.className = 'chat-bubble-row user';
     row.innerHTML = `
-      <div class="msg-avatar">👤</div>
       <div class="msg-bubble">
         <p>${escapeHtml(text)}</p>
       </div>
@@ -595,30 +629,71 @@
   }
 
   // 追加 AI 消息
-  function appendAIMessage(markdownText) {
+  function appendAIMessage(markdownText, sourceQuestion = '') {
     const row = document.createElement('div');
     row.className = 'chat-bubble-row ai';
     row.innerHTML = `
-      <div class="msg-avatar">🤖</div>
       <div class="msg-bubble">
         ${formatMarkdown(markdownText)}
       </div>
     `;
+    if (!sourceQuestion) {
+      chatScrollArea.appendChild(row);
+      scrollToBottom();
+      return;
+    }
+
+    chatScrollArea.querySelectorAll('.regenerate-message-btn').forEach(button => {
+      button.remove();
+    });
+
+    const actions = document.createElement('div');
+    actions.className = 'message-actions';
+    const copyButton = document.createElement('button');
+    copyButton.className = 'message-action-btn copy-message-btn';
+    copyButton.title = '复制回答';
+    copyButton.setAttribute('aria-label', '复制回答');
+    copyButton.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="8" y="8" width="11" height="12" rx="2"></rect><path d="M5 16V5a2 2 0 0 1 2-2h8"></path></svg>';
+    copyButton.addEventListener('click', async () => {
+      await navigator.clipboard.writeText(markdownText);
+      copyButton.classList.add('copied');
+      copyButton.title = '已复制';
+      setTimeout(() => {
+        copyButton.classList.remove('copied');
+        copyButton.title = '复制回答';
+      }, 1200);
+    });
+    const regenerateButton = document.createElement('button');
+    regenerateButton.className = 'message-action-btn regenerate-message-btn';
+    regenerateButton.title = '重新回答';
+    regenerateButton.setAttribute('aria-label', '重新回答');
+    regenerateButton.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 11a8 8 0 1 0-2.34 5.66"></path><path d="M20 4v7h-7"></path></svg>';
+    regenerateButton.addEventListener('click', () => {
+      row.remove();
+      regenerateAnswer(sourceQuestion);
+    });
+    actions.append(copyButton, regenerateButton);
+    row.appendChild(actions);
     chatScrollArea.appendChild(row);
     scrollToBottom();
   }
 
   // 打字中动效
-  function showTyping() {
+  // 主要作用：显示回答生成期间的查询状态。
+  function showTyping(serviceName) {
+    hideTyping();
     const row = document.createElement('div');
     row.id = 'typingRow';
     row.className = 'chat-bubble-row ai';
     row.innerHTML = `
-      <div class="msg-avatar">🤖</div>
       <div class="msg-bubble typing-bubble">
-        <div class="typing-dot"></div>
-        <div class="typing-dot"></div>
-        <div class="typing-dot"></div>
+        <div class="typing-text">正在查询中，请稍等……</div>
+        <div class="typing-service">
+          <span>${serviceName}</span>
+          <span class="typing-dots" aria-label="处理中">
+            <i></i><i></i><i></i>
+          </span>
+        </div>
       </div>
     `;
     chatScrollArea.appendChild(row);
@@ -636,7 +711,33 @@
 
   // 简易 Markdown 转化
   function formatMarkdown(text) {
-    return text
+    const normalized = String(text)
+      .replace(/\\n/g, '\n')
+      .replace(/\\\|/g, '|');
+    const lines = normalized.split('\n');
+    const output = [];
+    let index = 0;
+
+    while (index < lines.length) {
+      const header = lines[index].trim();
+      const separator = lines[index + 1] ? lines[index + 1].trim() : '';
+      if (header.startsWith('|') && separator.startsWith('|') && /^\|?\s*:?-+:?\s*(\|\s*:?-+:?\s*)+\|?$/.test(separator)) {
+        const parseRow = value => value.trim().replace(/^\|/, '').replace(/\|$/, '').split('|').map(cell => cell.trim());
+        const headers = parseRow(header);
+        const rows = [];
+        index += 2;
+        while (index < lines.length && lines[index].trim().startsWith('|')) {
+          rows.push(parseRow(lines[index]));
+          index += 1;
+        }
+        output.push(`<table><thead><tr>${headers.map(cell => `<th>${cell}</th>`).join('')}</tr></thead><tbody>${rows.map(row => `<tr>${headers.map((_, cellIndex) => `<td>${row[cellIndex] || ''}</td>`).join('')}</tr>`).join('')}</tbody></table>`);
+        continue;
+      }
+      output.push(lines[index]);
+      index += 1;
+    }
+
+    return output.join('\n')
       .replace(/^### (.*$)/gim, '<h3>$1</h3>')
       .replace(/^## (.*$)/gim, '<h2>$1</h2>')
       .replace(/\*\*(.*?)\*\*/gim, '<strong>$1</strong>')
@@ -653,6 +754,7 @@
     init();
     renderReferenceFiles([]);
     updateWeather({ city: '深圳', temperature: 26, weather_code: 1, is_day: 1 });
+    loadLocationWeather();
     window.parent.postMessage({ isStreamlitMessage: true, type: 'streamlit:componentReady', apiVersion: 1 }, '*');
     window.parent.postMessage({ isStreamlitMessage: true, type: 'streamlit:setFrameHeight', height: window.innerHeight }, '*');
   });

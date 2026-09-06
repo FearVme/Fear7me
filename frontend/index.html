@@ -1,4 +1,5 @@
 <!DOCTYPE html>
+<!-- 主要作用：展示角色选择、智能问答、参考文件、建议和版本信息。 -->
 <html lang="zh-CN">
 <head>
   <meta charset="UTF-8">
@@ -14,10 +15,14 @@
     <span>参考文件</span>
   </button>
 
+  <div class="landing-actions">
+    <button id="feedbackBtn" class="landing-text-btn">我要建议</button>
+    <button id="versionBtn" class="landing-text-btn">v1.0.0</button>
+  </div>
+
   <!-- ================= 视窗 1：通透三图平滑全屏轮播 + 极简 ABC 角色权限选择 ================= -->
   <main id="landingView" class="landing-view">
 
-    <div id="landingWeatherEffect" class="weather-atmosphere" aria-hidden="true"></div>
     <div id="landingWeather" class="weather-widget" data-condition="clear">
       <span class="weather-icon">☀️</span>
       <span class="weather-temp">--°</span>
@@ -42,27 +47,8 @@
       <p class="landing-subtitle"><span class="text-glass-edge">选择用户权限角色 · 即刻进入智能问答</span></p>
     </div>
 
-    <!-- 滑动交互区 -->
+    <!-- 角色选择区 -->
     <div class="sliding-nav-container">
-      
-      <!-- 磁吸滑动导轨 -->
-      <div class="sliding-nav-track" id="slidingNavTrack">
-        <div class="sliding-active-indicator" id="slidingIndicator"></div>
-        
-        <div class="sliding-nav-item active" data-index="0" data-role="A">
-          <span class="nav-dot dot-a"></span>
-          <span>角色 A · 审计监察</span>
-        </div>
-        <div class="sliding-nav-item" data-index="1" data-role="B">
-          <span class="nav-dot dot-b"></span>
-          <span>角色 B · 工程管理</span>
-        </div>
-        <div class="sliding-nav-item" data-index="2" data-role="C">
-          <span class="nav-dot dot-c"></span>
-          <span>角色 C · 集团决策</span>
-        </div>
-      </div>
-
       <!-- ABC 三个角色权限（完全去除框框，仅在文字底下紧密沿着文字边缘覆盖毛玻璃） -->
       <div class="roles-slider-stage" id="rolesSliderStage">
         
@@ -129,14 +115,11 @@
         </div>
       </div>
 
-      <!-- 快捷审计指令胶囊 (纯对话模式，无物理文件写入) -->
-      <div class="gemini-pills-bar">
-        <button class="g-pill" data-action="1">📊 1. 变更金额累计是否错误</button>
-        <button class="g-pill" data-action="2">☀️ 2. 是否按照要求在阳光平台公示</button>
-        <button class="g-pill" data-action="3">🏛️ 3. 是否走了工程技术委员会审批</button>
-        <button class="g-pill" data-action="4">📋 4. 审批流程是否正确</button>
-        <button class="g-pill" data-action="5">⚠️ 5. 其他和制度冲突的部分</button>
-        <button class="g-pill" data-action="qa">📖 制度知识问答</button>
+      <!-- 三类核心能力入口 -->
+      <div class="capability-bar">
+        <button class="capability-card" data-action="policy">制度问答</button>
+        <button class="capability-card" data-action="database">数据库查询</button>
+        <button class="capability-card" data-action="audit">变更合规审查</button>
       </div>
 
       <!-- 问答消息滚动区域 (单列居中流，无左侧对话历史侧边栏) -->
@@ -147,7 +130,7 @@
       <!-- 底部 Gemini 风格浮动输入胶囊 -->
       <div class="gemini-input-container">
         <div class="gemini-input-pill">
-          <input type="text" id="chatInput" class="gemini-input" placeholder="输入您的问题（例如：重大设计变更标准、输入以上5个审计项直接核验）..." />
+          <input type="text" id="chatInput" class="gemini-input" placeholder="输入您的问题" />
           <button id="sendBtn" class="gemini-send-btn" title="发送">
             <span>➤</span>
           </button>
@@ -160,9 +143,9 @@
         
         <!-- 向上弹出的 ABC 三个角色小圆圈按钮 (垂直堆叠) -->
         <div class="role-popup-stack" id="rolePopupStack">
-          <button class="role-pop-btn role-c" data-role="C" title="切换角色 C · 集团决策">C</button>
-          <button class="role-pop-btn role-b" data-role="B" title="切换角色 B · 工程管理">B</button>
-          <button class="role-pop-btn role-a active" data-role="A" title="切换角色 A · 审计监察">A</button>
+          <button class="role-pop-btn role-c" data-role="C" title="切换角色 C · 全部项目">C</button>
+          <button class="role-pop-btn role-b" data-role="B" title="切换角色 B · 区域管理">B</button>
+          <button class="role-pop-btn role-a active" data-role="A" title="切换角色 A · 项目经理">A</button>
         </div>
 
         <!-- 主角色圆圈 -->
@@ -188,6 +171,33 @@
       <div class="modal-body">
         <div id="referenceFilesBody" class="reference-files-body"></div>
       </div>
+    </div>
+  </div>
+
+  <!-- ================= 弹窗：提交建议与查看回复 ================= -->
+  <div id="feedbackModal" class="modal-overlay">
+    <div class="modal-content interaction-modal">
+      <div class="modal-header">
+        <h3>我要建议</h3>
+        <button id="closeFeedbackBtn" class="btn-close-modal" title="关闭窗口">✕</button>
+      </div>
+      <div class="modal-body">
+        <textarea id="feedbackInput" class="feedback-input" placeholder="请输入您的建议"></textarea>
+        <button id="submitFeedbackBtn" class="primary-action-btn">提交建议</button>
+        <div id="feedbackStatus" class="feedback-status"></div>
+        <div id="feedbackList" class="feedback-list"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================= 弹窗：版本说明 ================= -->
+  <div id="versionModal" class="modal-overlay">
+    <div class="modal-content interaction-modal">
+      <div class="modal-header">
+        <h3>版本说明</h3>
+        <button id="closeVersionBtn" class="btn-close-modal" title="关闭窗口">✕</button>
+      </div>
+      <div id="versionList" class="modal-body version-list"></div>
     </div>
   </div>
 
