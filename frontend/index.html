@@ -137,18 +137,8 @@
         </div>
       </div>
 
-      <!-- 左下角显示角色徽标（悬停提示，点击仅向上弹出 A/B/C 三个按钮，不覆盖页面） -->
+      <!-- 左下角只读显示当前角色；角色只能在首页选择。 -->
       <div class="bottom-left-role-badge" id="bottomLeftRoleBadge">
-        <div class="role-hover-tooltip" id="roleHoverTooltip">（点击可以选择切换角色）</div>
-        
-        <!-- 向上弹出的 ABC 三个角色小圆圈按钮 (垂直堆叠) -->
-        <div class="role-popup-stack" id="rolePopupStack">
-          <button class="role-pop-btn role-c" data-role="C" title="切换角色 C · 全部项目">C</button>
-          <button class="role-pop-btn role-b" data-role="B" title="切换角色 B · 区域管理">B</button>
-          <button class="role-pop-btn role-a active" data-role="A" title="切换角色 A · 项目经理">A</button>
-        </div>
-
-        <!-- 主角色圆圈 -->
         <div class="role-badge-circle role-a" id="roleBadgeCircle">
           <span id="roleLetterDisplay">A</span>
         </div>

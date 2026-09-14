@@ -2,6 +2,7 @@
 
 from pathlib import Path
 import json
+import re
 import ssl
 import sys
 import urllib.request
@@ -70,18 +71,58 @@ def build_evidence(results):
     evidence = []
 
     for item in results:
-        article = item["article"] or "附件或流程"
+        citation = format_citation(item)
         pages = (
             f"{item['page_start']}-{item['page_end']}页"
         )
 
         evidence.append(
             f"[{item['chunk_id']}] "
-            f"{item['source_file']}，第{article}条，{pages}\n"
+            f"{citation}，{pages}\n"
             f"{item['text']}"
         )
 
     return "\n\n".join(evidence)
+
+
+def format_citation(item):
+    """生成面向用户的制度定位，内部切片号不作为引用主体。"""
+    source = str(item.get("source_file", "")).removesuffix(".pdf")
+    prefix = f"《{source}》"
+    chapter = item.get("chapter")
+    chapter_title = item.get("chapter_title")
+    if chapter:
+        chapter_part = f"第{chapter}章"
+        if chapter_title:
+            chapter_part += f"《{chapter_title}》"
+    else:
+        chapter_part = ""
+
+    article = item.get("article")
+    if article:
+        location = f"{chapter_part}第{article}条"
+    elif item.get("article_title"):
+        location = f"{chapter_part}{item['article_title']}"
+    elif item.get("section_type") == "table":
+        appendix = _appendix_name(item.get("text", ""), "附表")
+        location = f"{chapter_part}{appendix}"
+    elif item.get("section_type") == "attachment":
+        appendix = _appendix_name(item.get("text", ""), "附件")
+        location = f"{chapter_part}{appendix}"
+    else:
+        location = chapter_part or "相关条款"
+    return prefix + location
+
+
+def _appendix_name(text, marker):
+    """从附表/附件切片标题中提取名称，避免只显示内部编号。"""
+    first_line = next((line.strip() for line in str(text).splitlines() if line.strip()), "")
+    match = re.search(rf"{marker}\s*(.*)", first_line)
+    if match:
+        name = match.group(1).strip().lstrip("：:").strip()
+        if name:
+            return f"{marker}{name}"
+    return marker
 
 
 def fallback_answer(question, results):
@@ -96,9 +137,8 @@ def fallback_answer(question, results):
 
     for item in results[:3]:
         excerpts.append(
-            f"[{item['chunk_id']}] "
-            f"{item['source_file']}，"
-            f"第{item['page_start']}-{item['page_end']}页\n"
+            f"依据：{format_citation(item)}（内部追溯号：{item['chunk_id']}，"
+            f"第{item['page_start']}-{item['page_end']}页）\n"
             f"{item['text']}"
         )
 
@@ -134,6 +174,7 @@ def build_messages(question, evidence, conversation_history):
 不得补充证据之外的制度内容。
 如果证据不足，请回答“现有制度切片无法确认”。
 回答必须引用证据编号，例如 [02-0022]。
+引用必须使用用户可核验的格式：制度文件名 + 章节 + 条款（或附表/附件）。例如：《K公司工程设计变更管理办法（2024年修订版）》第三章第十六条；如证据来自附表或附件，应写明“附表 设计变更分级审批指引表”或“附件8 设计变更台账”。内部切片编号仅用于系统追溯，不得作为唯一引用，也不要只输出[02-xxxx]。
 用自然、简洁的日常中文，不说“检索完成”等系统过程。
 先给明确结论，再给最多3条关键依据；不要重复用户问题。
 区分制度要求和事实数据，不根据制度证据臆测项目事实。
@@ -193,6 +234,9 @@ database：项目、变更、金额、状态和评审记录查询
 audit：合规、风险、审批、公示、累计金额和先批后建检查
 
 能力选择规则：
+0. 优先判断问题意图，不要因为出现“金额”或具体金额数字就自动选择database。
+   询问“属于哪一类、金额区间、审批层级、审批流程、是否需要技术委员会、是否必须公示、能否先实施后审批、先批后建、制度要求或依据什么文件”时，必须选择policy。
+   例如“单项设计变更金额为200万元属于哪一类？”是policy；“当前角色可见变更金额合计是多少？”才是database。
 1. 询问“我可以查看哪些项目”“当前角色能看哪些项目”“有哪些项目”时，只选择database。
 2. 询问变更金额、估算金额、核准金额、金额合计或金额明细时，只选择database；除非用户明确要求核对合规或风险。
 3. 询问项目基本信息、基础信息、基本情况、概况、类型、投资、阶段、地址或负责人时，只选择database。
@@ -304,6 +348,11 @@ def synthesize_answer(
 
 整合规则：
 1. 只依据能力结果回答，不补造数据或制度。
+1.5 制度依据必须写文件名、章节和条款；附表/附件必须写明名称。不得只引用内部切片编号。
+1.1 能力结果中已经给出结构化筛选明细时，只能回答筛选后的记录，不得改写成全部项目或全部变更汇总。
+1.2 审计结果必须区分“审计问题数”和“涉及不合规变更数”；同一变更有多个问题时，变更数只能计一次。
+1.3 数据库字段已返回时必须直接使用；不得声称字段缺失。只有能力结果明确没有该字段时，才可回答“目前无法确认”。
+1.4 “无技术委员会记录”是数据库事实，不等于“数据缺失”；金额超过200万元且无记录时，应按审计规则报告风险。
 2. 数据库结果回答事实，制度结果回答制度，审计结果回答合规结论。
 3. 同时有多个结果时按“结论—数据—制度依据—需要关注事项”自然组织。
 4. 没有证据的部分明确说“目前数据无法确认”。

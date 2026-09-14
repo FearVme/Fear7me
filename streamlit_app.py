@@ -107,6 +107,11 @@ def load_reference_files() -> list[dict[str, str | int]]:
         ".md",
         ".ppt",
         ".pptx",
+        ".png",
+        ".jpg",
+        ".jpeg",
+        ".gif",
+        ".webp",
     }
 
     files = []
@@ -311,6 +316,7 @@ def main() -> None:
     st.session_state.setdefault("response", "")
     st.session_state.setdefault("last_event", None)
     st.session_state.setdefault("conversation_history", [])
+    st.session_state.setdefault("context_state", {})
     st.session_state.setdefault("feedback_status", "")
     st.session_state.setdefault("response_token", -1)
 
@@ -344,6 +350,9 @@ def main() -> None:
         return
 
     action = event.get("action", "ask")
+    if action != "select_role":
+        # 前端消息中的角色仅作展示，权限以服务端会话角色为准。
+        role = st.session_state["role"]
     message = str(event.get("message", "")).strip()
 
     if action == "submit_feedback":
@@ -363,10 +372,18 @@ def main() -> None:
         st.session_state["last_event"] = event
         st.rerun()
 
-    if action == "switch_role":
+    if action == "select_role":
         st.session_state["role"] = role
         st.session_state["response"] = ""
         st.session_state["conversation_history"] = []
+        st.session_state["context_state"] = {}
+        st.session_state["last_event"] = event
+        st.rerun()
+
+    if action == "clear_context":
+        st.session_state["conversation_history"] = []
+        st.session_state["context_state"] = {}
+        st.session_state["response"] = ""
         st.session_state["last_event"] = event
         st.rerun()
 
@@ -383,6 +400,7 @@ def main() -> None:
             message,
             role,
             conversation_history=history,
+            context=st.session_state["context_state"],
         )
     except RuntimeError as error:
         st.session_state["response"] = str(error)

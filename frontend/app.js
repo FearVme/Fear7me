@@ -54,7 +54,6 @@
   const sendBtn = document.getElementById('sendBtn');
   const bottomLeftBadge = document.getElementById('bottomLeftRoleBadge');
   const roleBadgeCircle = document.getElementById('roleBadgeCircle');
-  const rolePopupStack = document.getElementById('rolePopupStack');
   const feedbackBtn = document.getElementById('feedbackBtn');
   const versionBtn = document.getElementById('versionBtn');
   const feedbackModal = document.getElementById('feedbackModal');
@@ -105,47 +104,17 @@
     // 4. 关闭 Gemini 提问居中弹出框
     closeChatModalBtn.addEventListener('click', () => {
       geminiChatModal.classList.remove('open');
-      closeRolePopupStack();
+      resetChatSession();
     });
 
     geminiChatModal.addEventListener('click', (e) => {
       if (e.target === geminiChatModal) {
         geminiChatModal.classList.remove('open');
-        closeRolePopupStack();
+        resetChatSession();
       }
     });
 
-    // 5. 左下角角色圆圈点击：向上弹出 ABC 三个角色的按钮（不覆盖页面）
-    if (roleBadgeCircle && rolePopupStack) {
-      roleBadgeCircle.addEventListener('click', (e) => {
-        e.stopPropagation();
-        const isOpen = rolePopupStack.classList.contains('open');
-        if (isOpen) {
-          closeRolePopupStack();
-        } else {
-          openRolePopupStack();
-        }
-      });
-    }
-
-    // 点击向上弹出的 A / B / C 按钮进行角色切换
-    document.querySelectorAll('.role-pop-btn').forEach(btn => {
-      btn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        const role = btn.getAttribute('data-role');
-        switchRoleInChat(role);
-        closeRolePopupStack();
-      });
-    });
-
-    // 点击对话框任意其他位置时自动收回三个按钮
-    document.addEventListener('click', (e) => {
-      if (bottomLeftBadge && !bottomLeftBadge.contains(e.target)) {
-        closeRolePopupStack();
-      }
-    });
-
-    // 6. 输入框与发送消息
+    // 5. 输入框与发送消息
     sendBtn.addEventListener('click', () => {
       if (requestPending) {
         pauseRequest();
@@ -237,41 +206,30 @@
 
     geminiChatModal.classList.add('open');
     updateRoleBadgeUI(role);
+    sendRoleSelectionToStreamlit(role);
 
     if (chatScrollArea.children.length === 0) {
       appendAIMessage(config.welcome);
     }
   }
 
+  function resetChatSession() {
+    pauseRequest();
+    chatScrollArea.replaceChildren();
+    chatInput.value = '';
+    lastUserQuestion = '';
+    sendInteractionToStreamlit('clear_context', '');
+  }
+
+  function sendRoleSelectionToStreamlit(role) {
+    window.parent.postMessage({
+      isStreamlitMessage: true,
+      type: 'streamlit:setComponentValue',
+      value: { action: 'select_role', role, message: role }
+    }, '*');
+  }
+
   // 主要作用：切换 A、B、C 角色，并清空当前角色的聊天显示。
-  function switchRoleInChat(role) {
-  pauseRequest();
-  currentRole = role;
-  updateRoleBadgeUI(role);
-
-  hideTyping();
-  chatScrollArea.replaceChildren();
-
-  const config = ROLE_CONFIG[role] || ROLE_CONFIG.A;
-  appendAIMessage(config.welcome);
-
-  sendRoleSwitchToStreamlit(role);
-}
-
-  function openRolePopupStack() {
-    if (rolePopupStack && bottomLeftBadge) {
-      rolePopupStack.classList.add('open');
-      bottomLeftBadge.classList.add('stack-open');
-    }
-  }
-
-  function closeRolePopupStack() {
-    if (rolePopupStack && bottomLeftBadge) {
-      rolePopupStack.classList.remove('open');
-      bottomLeftBadge.classList.remove('stack-open');
-    }
-  }
-
   function updateRoleBadgeUI(role) {
     const badge = document.getElementById('roleBadgeCircle');
     const letter = document.getElementById('roleLetterDisplay');
@@ -280,9 +238,6 @@
       badge.className = `role-badge-circle role-${role.toLowerCase()}`;
     }
 
-    document.querySelectorAll('.role-pop-btn').forEach(btn => {
-      btn.classList.toggle('active', btn.getAttribute('data-role') === role);
-    });
   }
 
   // 发送消息处理
@@ -330,18 +285,6 @@ function regenerateAnswer(question) {
   );
 }
 // 主要作用：通知后端用户刚刚切换了 A、B、C 角色。
-function sendRoleSwitchToStreamlit(role) {
-  window.parent.postMessage({
-    isStreamlitMessage: true,
-    type: 'streamlit:setComponentValue',
-    value: {
-      action: 'switch_role',
-      role: role,
-      message: role
-    }
-  }, '*');
-}
-
   // 主要作用：暂停当前请求，允许用户重新发起问题。
   function pauseRequest() {
     if (!requestPending) return;
@@ -529,13 +472,6 @@ function sendRoleSwitchToStreamlit(role) {
         actions.appendChild(meta);
 
         const dataUrl = `data:${file.mime_type};base64,${file.data}`;
-        if (file.mime_type === 'application/pdf') {
-          const preview = document.createElement('button');
-          preview.className = 'file-action-btn';
-          preview.textContent = '预览';
-          preview.addEventListener('click', () => window.open(dataUrl, '_blank'));
-          actions.appendChild(preview);
-        }
 
         const download = document.createElement('a');
         download.className = 'file-action-btn';
@@ -730,7 +666,7 @@ function sendRoleSwitchToStreamlit(role) {
           rows.push(parseRow(lines[index]));
           index += 1;
         }
-        output.push(`<table><thead><tr>${headers.map(cell => `<th>${cell}</th>`).join('')}</tr></thead><tbody>${rows.map(row => `<tr>${headers.map((_, cellIndex) => `<td>${row[cellIndex] || ''}</td>`).join('')}</tr>`).join('')}</tbody></table>`);
+        output.push(`<div class="table-scroll"><table><thead><tr>${headers.map(cell => `<th>${cell}</th>`).join('')}</tr></thead><tbody>${rows.map(row => `<tr>${headers.map((_, cellIndex) => `<td>${row[cellIndex] || ''}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`);
         continue;
       }
       output.push(lines[index]);

@@ -48,8 +48,17 @@ def project_matches(project_name, target_project_name):
 
 
 def filter_database_for_project(database, project_name):
+    project_numbers = {
+        project["project_number"]
+        for project in database["projects"]
+        if project_matches(project["project_name"], project_name)
+    }
     return {
-        key: [item for item in database[key] if project_matches(item.get("project_name", ""), project_name)]
+        key: [
+            item
+            for item in database[key]
+            if item.get("project_number") in project_numbers
+        ]
         for key in ["projects", "changes", "committee_reviews", "approval_records"]
     }
 

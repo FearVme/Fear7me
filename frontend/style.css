@@ -446,6 +446,7 @@ body {
   opacity: 0;
   pointer-events: none;
   transition: opacity 0.32s var(--spring-ease);
+  overflow: hidden;
 }
 
 .gemini-modal-overlay.open {
@@ -468,6 +469,8 @@ body {
   flex-direction: column;
   position: relative;
   overflow: hidden;
+  max-width: 100%;
+  min-width: 0;
   animation: geminiPop 0.38s var(--spring-ease) both;
 }
 
@@ -577,15 +580,31 @@ body {
   gap: 28px;
   max-width: none;
   width: 100%;
+  min-width: 0;
+  overflow-x: hidden;
+  scrollbar-gutter: stable;
+  overscroll-behavior: contain;
   margin: 0;
   padding-left: clamp(20px, 9vw, 150px);
   padding-right: clamp(20px, 9vw, 150px);
+}
+
+.gemini-chat-body::-webkit-scrollbar { width: 10px; }
+.gemini-chat-body::-webkit-scrollbar-track { background: transparent; }
+.gemini-chat-body::-webkit-scrollbar-thumb {
+  background: rgba(100, 116, 139, 0.45);
+  border: 3px solid transparent;
+  background-clip: content-box;
+  border-radius: 999px;
 }
 
 .chat-bubble-row {
   display: flex;
   gap: 12px;
   width: 100%;
+  min-width: 0;
+  max-width: 100%;
+  overflow-x: visible;
   animation: messageEntrance 0.3s var(--spring-ease) both;
 }
 
@@ -627,6 +646,8 @@ body {
   font-size: 14px;
   line-height: 1.6;
   box-shadow: 0 1px 4px rgba(0, 0, 0, 0.04);
+  min-width: 0;
+  overflow-wrap: break-word;
 }
 
 .chat-bubble-row.user .msg-bubble {
@@ -706,16 +727,27 @@ body {
   font-size: 13px;
 }
 
-/* 紧凑型专业审计数据表 */
-.msg-bubble table {
+/* 紧凑型专业审计数据表；超宽表格在自身容器内横向滚动。 */
+.table-scroll {
   width: 100%;
+  max-width: 100%;
+  overflow-x: auto;
+  overflow-y: hidden;
+  -webkit-overflow-scrolling: touch;
+}
+
+.msg-bubble table {
+  width: max-content;
+  min-width: 100%;
+  white-space: nowrap;
   border-collapse: collapse;
   margin: 10px 0;
   font-size: 12px;
   border: 1px solid var(--slate-200);
   border-radius: 6px;
-  overflow: hidden;
 }
+
+.msg-bubble table tr { width: auto; }
 
 .msg-bubble th, .msg-bubble td {
   padding: 6px 10px;
@@ -1077,6 +1109,34 @@ body {
   overflow: hidden;
 }
 
+/* 主要作用：为不同功能窗口提供独立、可识别的进入动效。 */
+#refFilesModal.open .modal-content {
+  animation: referenceFilesIn 0.32s var(--spring-ease) both;
+}
+
+#feedbackModal.open .modal-content {
+  animation: feedbackIn 0.36s var(--spring-ease) both;
+}
+
+#versionModal.open .modal-content {
+  animation: versionIn 0.34s var(--spring-ease) both;
+}
+
+@keyframes referenceFilesIn {
+  from { opacity: 0; transform: translateY(-18px) scale(0.98); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@keyframes feedbackIn {
+  from { opacity: 0; transform: translateX(24px) scale(0.96); }
+  to { opacity: 1; transform: translateX(0) scale(1); }
+}
+
+@keyframes versionIn {
+  from { opacity: 0; transform: translateY(20px) rotateX(-5deg) scale(0.97); }
+  to { opacity: 1; transform: translateY(0) rotateX(0) scale(1); }
+}
+
 .modal-header {
   padding: 16px 20px;
   border-bottom: 1px solid var(--slate-200);
@@ -1398,5 +1458,115 @@ body {
   .bottom-left-role-badge {
     bottom: 12px;
     left: 14px;
+  }
+}
+
+/* 主要作用：为问答窗口提供半透明毛玻璃材质，并优化三类能力入口的展示层级。 */
+.gemini-chat-window {
+  background: rgba(245, 247, 251, 0.72);
+  border: 1px solid rgba(255, 255, 255, 0.82);
+  box-shadow: 0 24px 70px rgba(0, 0, 0, 0.3), inset 0 1px rgba(255, 255, 255, 0.76);
+  backdrop-filter: blur(30px) saturate(135%);
+  -webkit-backdrop-filter: blur(30px) saturate(135%);
+}
+
+.gemini-header {
+  background: rgba(248, 250, 253, 0.58);
+  border-bottom-color: rgba(148, 163, 184, 0.24);
+}
+
+.capability-bar {
+  width: auto;
+  margin: 12px 24px 4px;
+  padding: 5px;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.72);
+  border-radius: 14px;
+  background: rgba(226, 232, 240, 0.38);
+  box-shadow: inset 0 1px rgba(255, 255, 255, 0.7), 0 5px 16px rgba(15, 23, 42, 0.06);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+}
+
+.capability-card {
+  position: relative;
+  min-height: 42px;
+  padding: 8px 12px 8px 30px;
+  border: 1px solid rgba(255, 255, 255, 0.72);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.58);
+  color: #334155;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0;
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.06);
+  transition: background 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
+}
+
+.capability-card::before {
+  content: "";
+  position: absolute;
+  left: 12px;
+  top: 50%;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  transform: translateY(-50%);
+  background: #64748b;
+  box-shadow: 0 0 0 3px rgba(100, 116, 139, 0.12);
+}
+
+.capability-card:nth-child(1)::before {
+  background: #f59e0b;
+  box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.14);
+}
+
+.capability-card:nth-child(2)::before {
+  background: #0a84ff;
+  box-shadow: 0 0 0 3px rgba(10, 132, 255, 0.14);
+}
+
+.capability-card:nth-child(3)::before {
+  background: #34c759;
+  box-shadow: 0 0 0 3px rgba(52, 199, 89, 0.14);
+}
+
+.capability-card:hover {
+  background: rgba(255, 255, 255, 0.9);
+  border-color: rgba(10, 132, 255, 0.34);
+  color: #1e293b;
+  box-shadow: 0 6px 14px rgba(15, 23, 42, 0.1);
+  transform: translateY(-1px);
+}
+
+.gemini-chat-body {
+  background: rgba(255, 255, 255, 0.16);
+}
+
+.gemini-input-pill {
+  background: rgba(255, 255, 255, 0.74);
+  border-color: rgba(255, 255, 255, 0.9);
+  backdrop-filter: blur(24px) saturate(135%);
+  -webkit-backdrop-filter: blur(24px) saturate(135%);
+}
+
+@media (max-width: 860px) {
+  .capability-bar {
+    margin: 10px 12px 4px;
+    gap: 4px;
+  }
+
+  .capability-card {
+    min-height: 40px;
+    padding: 7px 5px 7px 22px;
+    font-size: 11px;
+  }
+
+  .capability-card::before {
+    left: 8px;
+    width: 6px;
+    height: 6px;
   }
 }
